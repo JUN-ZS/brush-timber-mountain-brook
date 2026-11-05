@@ -36,7 +36,7 @@ FIELDS = (
 )
 API_URL = "https://api.orats.io/datav2/hist/strikes"
 SCHEMA = "tail-call-six-contract-overlay.v1"
-CORE_ARM = "alternate_dte20_every10"
+CORE_ARM = "alternate_dte20_every10_tue_anchor"
 
 
 def num(value):

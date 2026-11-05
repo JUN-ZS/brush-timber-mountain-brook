@@ -4,7 +4,8 @@ import argparse, csv, json
 from datetime import date
 from pathlib import Path
 
-ARM = "alternate_dte20_every10"
+ARM = "alternate_dte20_every10_tue_anchor"
+OFFSET = 2
 
 def rows(path):
     with Path(path).open(newline="", encoding="utf-8") as f:
@@ -27,6 +28,8 @@ def main():
     cadence = m["cadence"]
     require(cadence.get("new_signal_every_common_sessions") == 10, "not 10-session cadence")
     cfg = cadence["arms"][ARM]
+    require(cadence.get("signal_anchor_common_session_offset") == OFFSET, "wrong anchor offset")
+    require(cfg.get("schedule_offset") == OFFSET, "arm schedule offset")
     require(cfg.get("max_hold_sessions") == 20 and cfg.get("exit_remaining_dte") == 7, "exit rules")
     daily = rows(out / (ARM + "_daily_nav.csv"))
     entries = rows(out / (ARM + "_entries.csv"))
@@ -44,11 +47,11 @@ def main():
     attempts = {}
     for r in entries:
         i = int(r["signal_index"])
-        require(i % 10 == 0 and r["schedule_signal_date"] == daily[i]["date"], "entry cadence/index")
+        require(i >= OFFSET and (i - OFFSET) % 10 == 0 and r["schedule_signal_date"] == daily[i]["date"], "entry cadence/index")
         require(int(r["entry_index"]) == i + 1, "entry not next common session")
         require((date.fromisoformat(r["expiry"]) - date.fromisoformat(r["entry_date"])).days == 20, "entry DTE is not 20")
         require(r["signal_date"] == r["entry_date"], "option quote date does not match entry")
-        expected_dir = "A" if (i // 10) % 2 == 0 else "B"
+        expected_dir = "A" if ((i - OFFSET) // 10) % 2 == 0 else "B"
         require(r["direction"] == expected_dir, "A/B entry alternation")
         require(i not in attempts, "duplicate schedule slot")
         attempts[i] = r["direction"]
@@ -58,11 +61,11 @@ def main():
         require(round(float(r["short_premium_received_usd"]), 2) == round(600 * float(r["short_entry_bid"]), 2), "short premium")
     for r in skips:
         i = by_date.get(r.get("signal_date"))
-        require(i is not None and i % 10 == 0, "skip off cadence")
-        expected_dir = "A" if (i // 10) % 2 == 0 else "B"
+        require(i is not None and i >= OFFSET and (i - OFFSET) % 10 == 0, "skip off cadence")
+        expected_dir = "A" if ((i - OFFSET) // 10) % 2 == 0 else "B"
         require(r["direction"] == expected_dir and i not in attempts, "skip direction/duplicate")
         attempts[i] = r["direction"]
-    scheduled = set(range(0, len(daily), 10))
+    scheduled = set(range(OFFSET, len(daily), 10))
     require(set(attempts) == scheduled, "scheduled signals not reconciled")
     require(len(entries) + len(skips) == len(scheduled), "entry/skip count")
     for episode, t in trade_map.items():

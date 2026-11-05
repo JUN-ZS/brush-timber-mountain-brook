@@ -2,7 +2,7 @@ import unittest
 from alternating_qqq_spy_put_cycle_v1 import (
     choose_contract_pair, direction_for, trade_pnl, premium_cashflow_usd,
     premium_match_pct, drawdown, LONG_QTY, SHORT_QTY,
-    exit_trigger, STRIDE, DTE_MIN, DTE_MAX, DTE_TARGET, ARM_CONFIG,
+    exit_trigger, STRIDE, DTE_MIN, DTE_MAX, DTE_TARGET, ARM_CONFIG, ENTRY_SIGNAL_OFFSET,
 )
 
 
@@ -14,8 +14,10 @@ class AlternatingPutCycleTests(unittest.TestCase):
     def test_strategy_is_dte20_target_and_new_entry_every_ten_sessions(self):
         self.assertEqual((DTE_MIN, DTE_MAX, DTE_TARGET), (20, 20, 20))
         self.assertEqual(STRIDE, 10)
-        self.assertEqual(list(ARM_CONFIG), ["alternate_dte20_every10"])
-        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["mode"], "alternate")
+        self.assertEqual(ENTRY_SIGNAL_OFFSET, 2)
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10_tue_anchor"]["schedule_offset"], 2)
+        self.assertEqual(list(ARM_CONFIG), ["alternate_dte20_every10_tue_anchor"])
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10_tue_anchor"]["mode"], "alternate")
         self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["max_hold_sessions"], 20)
         self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["exit_remaining_dte"], 7)
 

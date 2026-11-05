@@ -17,10 +17,11 @@ SHORT_DELTA_TARGET=0.25
 LONG_DELTA_LOW,LONG_DELTA_HIGH,LONG_DELTA_TARGET=0.60,0.70,0.65
 LONG_QTY,SHORT_QTY,MULTIPLIER=1,6,100
 STRIDE=10
+ENTRY_SIGNAL_OFFSET=2
 SLIPPAGE_PER_SHARE,COMMISSION_PER_CONTRACT_SIDE=0.05,0.65
 DEFAULT_NAV=100000.0
 ARM_CONFIG={
- "alternate_dte20_every10":{"mode":"alternate","max_hold_sessions":20,"exit_remaining_dte":7},
+ "alternate_dte20_every10_tue_anchor":{"mode":"alternate","schedule_offset":ENTRY_SIGNAL_OFFSET,"max_hold_sessions":20,"exit_remaining_dte":7},
 }
 
 def premium_cashflow_usd(long_ask,short_bid):
@@ -168,9 +169,9 @@ def exit_trigger(age, day, expiry, max_hold_sessions=20, remaining_dte_limit=7):
     return False,None
 
 
-def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,exit_remaining_dte,initial_nav):
+def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,exit_remaining_dte,schedule_offset,initial_nav):
     dates=list(common_dates)
-    scheduled=set(range(0,len(dates),STRIDE))
+    scheduled=set(range(schedule_offset,len(dates),STRIDE))
     active=[];pending=None;trades=[];entries=[];skips=[];schedule_skips=[];daily=[]
     selected=entered=0
     for idx,day in enumerate(dates):
@@ -251,7 +252,7 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,exit_re
                 pending=None
 
         if idx in scheduled:
-            slot=idx//STRIDE
+            slot=(idx-schedule_offset)//STRIDE
             if pending is not None:
                 schedule_skips.append({"signal_date":day,"slot":slot,"reason":"PRIOR_ENTRY_STILL_PENDING"})
             else:
@@ -329,7 +330,7 @@ def build_pair_map(paths,spots,common_dates,start_day,end_day):
         if qitem is not None and qitem[0]==day:qitem=next(qi,None)
         if sitem is not None and sitem[0]==day:sitem=next(si,None)
         # Select from the actual next-session entry snapshot, not the prior signal quote.
-        if idx==0 or (idx-1)%STRIDE!=0:continue
+        if idx<=ENTRY_SIGNAL_OFFSET or (idx-1-ENTRY_SIGNAL_OFFSET)%STRIDE!=0:continue
         qspot,sspot=spots["QQQ"].get(day),spots["SPY"].get(day)
         pair_a=choose_contract_pair(srows,qrows,"SPY","QQQ",day,sspot,qspot) if qspot and sspot else None
         pair_b=choose_contract_pair(qrows,srows,"QQQ","SPY",day,qspot,sspot) if qspot and sspot else None
@@ -382,7 +383,7 @@ def main():
     results={}
     for mode,config in ARM_CONFIG.items():
         results[mode]=simulate_arm(day_rows,spots,pair_map,common_dates,mode,
-            config["max_hold_sessions"],config["exit_remaining_dte"],args.initial_nav)
+            config["max_hold_sessions"],config["exit_remaining_dte"],config["schedule_offset"],args.initial_nav)
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
     summary=[]
     for mode,r in results.items():
@@ -412,7 +413,7 @@ def main():
         "exit_rule":{"trigger":"remaining calendar DTE <= 7 OR maximum holding age >= 20 common sessions",
             "max_hold_sessions":20,"exit_remaining_dte_calendar_days":7,
             "execution":"defer only when required long Bid / short Ask size is unavailable"},
-        "cadence":{"new_signal_every_common_sessions":STRIDE,"alternation":"A=SPY short/QQQ long; B=QQQ short/SPY long; flips by fixed slot even if skipped",
+        "cadence":{"new_signal_every_common_sessions":STRIDE,"signal_anchor_common_session_offset":ENTRY_SIGNAL_OFFSET,"first_scheduled_signal_date":common_dates[ENTRY_SIGNAL_OFFSET],"first_entry_date":common_dates[ENTRY_SIGNAL_OFFSET+1],"alternation":"A=SPY short/QQQ long; B=QQQ short/SPY long; flips by fixed slot even if skipped",
             "arms":{k:v for k,v in ARM_CONFIG.items()}},
         "costs":{"slippage_per_option_share_per_side_usd":SLIPPAGE_PER_SHARE,"commission_per_contract_per_side_usd":COMMISSION_PER_CONTRACT_SIDE},
         "portfolio_ledger":{"starting_nav":args.initial_nav,"daily_nav":"initial NAV + realized episode net P&L + open cohort net bid/ask mark P&L",
@@ -437,7 +438,7 @@ def main():
         "- 起始 NAV：USD 100,000。",
         "- 每組：一張反向指數 LONG PUT，六張 SHORT PUT；A=SPY short／QQQ long，B=QQQ short／SPY long。",
         "- 入場：共同到期日；精確 DTE 20 日；SHORT PUT |Delta| 目標 0.25，LONG PUT |Delta| 0.60–0.70（目標 0.65）。",
-        "- 節奏：每 10 個共同交易日開新一組，A／B 交替，即使某一組因報價不合格而跳過，方向仍按排程翻轉。",
+        f"- 節奏：從第 {ENTRY_SIGNAL_OFFSET} 個共同交易日發出第一個訊號、下一日入場，其後每 10 個共同交易日開新一組；A／B 依排程交替，跳過訊號不改變方向。",
         "- 退出：剩餘日曆 DTE <= 7，或持有達 20 個共同交易日，先到者觸發；若平倉報價／顯示張數不足，延遲至可執行報價。",
         "",
         "| 策略 | 最終 NAV | 淨損益 | MaxDD (USD) | MaxDD (%) |",
