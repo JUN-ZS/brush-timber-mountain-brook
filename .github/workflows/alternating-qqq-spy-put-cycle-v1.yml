@@ -1,0 +1,86 @@
+name: Alternating SPY QQQ Put Cycle — DTE21 Weekly Flip
+
+on:
+  push:
+    branches:
+      - research/alternating-qqq-spy-put-cycle-v1-20261105
+    paths:
+      - research/alternating_qqq_spy_put_cycle_v1.py
+      - research/test_alternating_qqq_spy_put_cycle_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py
+      - .github/workflows/alternating-qqq-spy-put-cycle-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  replay:
+    name: Historical QQQ SPY quote replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          ref: \${{ github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned Parquet runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyarrow==21.0.0
+
+      - name: Compile and run unit tests
+        run: |
+          python -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py research/alternating_qqq_spy_put_cycle_v1.py research/test_alternating_qqq_spy_put_cycle_v1.py
+          python -m unittest discover -s research -p "test_alternating_qqq_spy_put_cycle_v1.py" -v
+
+      - name: Run pinned historical replay
+        run: |
+          python research/alternating_qqq_spy_put_cycle_v1.py \
+            --start 2018-03-01 \
+            --end 2025-12-15 \
+            --initial-nav 100000 \
+            --out research/alternating_qqq_spy_put_cycle_v1/results/latest
+
+      - name: Validate output bundle
+        run: |
+          set -euo pipefail
+          OUT=research/alternating_qqq_spy_put_cycle_v1/results/latest
+          test -s "$OUT/study_report.md"
+          test -s "$OUT/portfolio_arm_summary.csv"
+          test -s "$OUT/run_manifest.json"
+          for arm in SPY_SHORT_QQQ_LONG_only QQQ_SHORT_SPY_LONG_only alternate_weekly_close alternate_two_week_staggered; do
+            test -s "$OUT/\${arm}_daily_nav.csv"
+            test -s "$OUT/\${arm}_trades.csv"
+            test -s "$OUT/\${arm}_entries.csv"
+          done
+
+      - name: Upload replay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alternating-qqq-spy-put-cycle-v1
+          path: research/alternating_qqq_spy_put_cycle_v1/results/latest/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Commit reproducible results to isolated branch
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/alternating_qqq_spy_put_cycle_v1/results/latest/
+          if git diff --cached --quiet; then
+            echo "No result changes to commit."
+          else
+            git commit -m "results: alternating SPY QQQ DTE21 put cycle replay"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
