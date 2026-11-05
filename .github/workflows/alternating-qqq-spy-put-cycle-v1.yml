@@ -14,6 +14,10 @@ on:
       - .github/workflows/alternating-qqq-spy-put-cycle-v1.yml
   workflow_dispatch:
 
+concurrency:
+  group: alternating-qqq-spy-put-cycle-v1-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
