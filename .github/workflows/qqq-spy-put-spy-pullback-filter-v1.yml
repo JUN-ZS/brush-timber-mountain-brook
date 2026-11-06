@@ -1,0 +1,73 @@
+name: QQQ/SPY Put Pullback Filter Fixed-Ratio Size-Gated Replay V1
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-spy-pullback-filter-v1
+    paths:
+      - research/qqq_spy_put_spy_pullback_filter_v1/*.py
+      - research/qqq_spy_put_spy_pullback_filter_v1/CONTRACT.md
+      - .github/workflows/qqq-spy-put-spy-pullback-filter-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-spy-pullback-filter-v1
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    name: Pullback filter fixed-ratio replay with quote-depth gates (GitHub-hosted Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Runtime
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m venv .venv-pullback-filter
+          .venv-pullback-filter/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+      - name: Compile and run offline contract tests
+        run: |
+          set -euo pipefail
+          PY=.venv-pullback-filter/bin/python
+          $PY -m py_compile research/qqq_spy_put_spy_pullback_filter_v1/qqq_spy_put_spy_pullback_filter_v1.py
+          $PY -m py_compile research/qqq_spy_put_spy_pullback_filter_v1/test_qqq_spy_put_spy_pullback_filter_v1.py
+          $PY research/qqq_spy_put_spy_pullback_filter_v1/test_qqq_spy_put_spy_pullback_filter_v1.py
+      - name: Replay both fixed ratios with one shared SHA-verified download cache
+        timeout-minutes: 330
+        run: |
+          set -euo pipefail
+          PY=.venv-pullback-filter/bin/python
+          ROOT=research/qqq_spy_put_spy_pullback_filter_v1/results
+          mkdir -p "$ROOT/fixed_1_6" "$ROOT/fixed_4_5"
+          COMMON="--entry-filter qqq_underperforms_spy_20d_and_spy_nonpositive_20d --sizing-mode fixed_ratio --max-total-contracts 9 --start 2018-03-01 --end 2025-12-15 --qqq-cache $HOME/.cache/qqq-options-full-history --spy-cache $HOME/.cache/spy-options-spy-pullback-filter-v1"
+          $PY research/qqq_spy_put_spy_pullback_filter_v1/qqq_spy_put_spy_pullback_filter_v1.py $COMMON --fixed-long-qty 1 --fixed-short-qty 6 --out "$ROOT/fixed_1_6" | tee "$ROOT/fixed_1_6/run_console.json"
+          test -s "$ROOT/fixed_1_6/summary.json"
+          test -s "$ROOT/fixed_1_6/summary.md"
+          $PY research/qqq_spy_put_spy_pullback_filter_v1/qqq_spy_put_spy_pullback_filter_v1.py $COMMON --fixed-long-qty 4 --fixed-short-qty 5 --out "$ROOT/fixed_4_5" | tee "$ROOT/fixed_4_5/run_console.json"
+          test -s "$ROOT/fixed_4_5/summary.json"
+          test -s "$ROOT/fixed_4_5/summary.md"
+          cat "$ROOT/fixed_1_6/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          cat "$ROOT/fixed_4_5/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit compact results to this branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_spy_pullback_filter_v1/results
+          if git diff --cached --quiet; then
+            echo "Results unchanged; no new commit required."
+            exit 0
+          fi
+          git commit -m "research: record SPY pullback filter fixed-ratio replay"
+          git push origin HEAD:research/qqq-spy-put-spy-pullback-filter-v1
